@@ -1,10 +1,10 @@
+import logging
+import os
+import re
+import signal
 import subprocess
 import sys
-import signal
 import threading
-import re
-import os
-import logging
 
 logger = logging.getLogger(__name__)
 

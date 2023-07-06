@@ -1,13 +1,12 @@
-import logging
 import contextlib
-from typing import Dict, Any
+import logging
 from pathlib import Path
+from typing import Any, Dict
 
-from nebari.hookspecs import hookimpl, NebariStage
+from nebari.hookspecs import NebariStage, hookimpl
 from nebari.schema import Base
 
 from nebari_helm_stage import helm
-
 
 logger = logging.getLogger(__name__)
 
@@ -38,11 +37,11 @@ class NebariHelmExtension(NebariStage):
     @property
     def stage_prefix(self):
         return Path("stages")
-    
+
     def render(self) -> Dict[str, str]:
         # TODO:
         # confirm kube context is set correctly
-        
+
         contents = {}
         output_dir = self.output_directory / self.stage_prefix
 

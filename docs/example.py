@@ -1,7 +1,8 @@
 from pathlib import Path
+
 from pydantic import BaseModel
 
-from nebari_helm_stage import NebariHelmExtension, InputSchema
+from nebari_helm_stage import InputSchema, NebariHelmExtension
 
 url = "https://charts.heartex.com/"
 repo = "heartex"
@@ -28,6 +29,7 @@ class LabelStudioHelmStage(NebariHelmExtension):
 # blank `nebari-config.yaml`
 class Config(BaseModel):
     pass
+
 
 # current working directory
 output_dir = "."

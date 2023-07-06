@@ -1,10 +1,10 @@
 import collections.abc
 import logging
+import mimetypes
 import os
 import platform
 import tarfile
 import tempfile
-import mimetypes
 from pathlib import Path
 from typing import Any, Dict, Union
 from urllib.parse import urljoin
@@ -68,7 +68,9 @@ def helm_update():
     run_helm_subprocess(["repo", "update"])
 
 
-def helm_pull(repo: str, chart: str, version: str, overrides: dict, output_dir: str | Path) -> Dict[str, str]:
+def helm_pull(
+    repo: str, chart: str, version: str, overrides: dict, output_dir: str | Path
+) -> Dict[str, str]:
     contents = {}
 
     if isinstance(output_dir, str):
@@ -97,14 +99,18 @@ def helm_pull(repo: str, chart: str, version: str, overrides: dict, output_dir: 
                     if filename == "values.yaml":
                         update_helm_values(overrides=overrides, file_path=file_path)
 
-                    with open(file_path, 'r') as file:
+                    with open(file_path, "r") as file:
                         file_content = file.read()
 
                     # mock the final location
-                    relative_path = str((output_dir / file_path.relative_to(temp_dir_path)).absolute())
+                    relative_path = str(
+                        (output_dir / file_path.relative_to(temp_dir_path)).absolute()
+                    )
                     contents[relative_path] = file_content
                 except UnicodeDecodeError:
-                    logger.warn(f"{filename} is not a text file so it will not be included.")
+                    logger.warn(
+                        f"{filename} is not a text file so it will not be included."
+                    )
 
     return contents
 
@@ -127,4 +133,3 @@ def update_helm_values(overrides: Dict[str, Any], file_path: Union[str, Path]):
 
     with open(file_path, "w") as f:
         yaml.dump(values, f)
-
