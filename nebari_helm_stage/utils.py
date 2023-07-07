@@ -1,16 +1,12 @@
-import logging
+import subprocess
+import threading
 import os
+import sys
 import re
 import signal
-import subprocess
-import sys
-import threading
-
-logger = logging.getLogger(__name__)
 
 
-# copied from Nebari utils
-def run_subprocess_cmd(processargs, **kwargs):
+def run_subprocess_cmd(processargs, suppress_output=False, **kwargs):
     """Runs subprocess command with realtime stdout logging with optional line prefix."""
     if "prefix" in kwargs:
         line_prefix = f"[{kwargs['prefix']}]: ".encode("utf-8")
@@ -44,6 +40,8 @@ def run_subprocess_cmd(processargs, **kwargs):
         timeout_timer = threading.Timer(timeout, kill_process)
         timeout_timer.start()
 
+    output_lines = []
+
     for line in iter(lambda: process.stdout.readline(), b""):
         full_line = line_prefix + line
         if strip_errors:
@@ -53,12 +51,19 @@ def run_subprocess_cmd(processargs, **kwargs):
             )  # Remove red ANSI escape code
             full_line = full_line.encode("utf-8")
 
-        sys.stdout.buffer.write(full_line)
-        sys.stdout.flush()
+        output_lines.append(full_line.decode("utf-8"))
+
+        if not suppress_output:
+            sys.stdout.buffer.write(full_line)
+            sys.stdout.flush()
 
     if timeout_timer is not None:
         timeout_timer.cancel()
 
-    return process.wait(
+    exit_code = process.wait(
         timeout=10
     )  # Should already have finished because we have drained stdout
+
+    output_str = "".join(output_lines)
+
+    return exit_code, output_str

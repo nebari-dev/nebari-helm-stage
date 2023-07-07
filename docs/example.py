@@ -1,4 +1,5 @@
 from pathlib import Path
+import time
 
 from pydantic import BaseModel
 
@@ -33,8 +34,9 @@ class Config(BaseModel):
 
 # current working directory
 output_dir = "."
+namespace = "dev"
 
-stage = LabelStudioHelmStage(output_dir, Config())
+stage = LabelStudioHelmStage(output_dir, Config(), namespace)
 
 
 # Items below this line will be handled by Nebari but included to run the example
@@ -46,3 +48,12 @@ for output_filename, data in contents.items():
     dirname.mkdir(parents=True, exist_ok=True)
     with open(output_filename, "w+") as f:
         f.write(data)
+
+stage_outputs = {}
+stage.deploy(stage_outputs=stage_outputs)
+
+secs = 30
+print(f"Sleep for {secs} seconds...")
+time.sleep(secs)
+
+stage.destroy(stage_outputs=stage_outputs)
