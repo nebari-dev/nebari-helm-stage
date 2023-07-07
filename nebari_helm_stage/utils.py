@@ -1,9 +1,9 @@
-import subprocess
-import threading
 import os
-import sys
 import re
 import signal
+import subprocess
+import sys
+import threading
 
 
 def run_subprocess_cmd(processargs, suppress_output=False, **kwargs):

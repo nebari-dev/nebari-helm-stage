@@ -1,10 +1,10 @@
 import collections.abc
+import json
 import logging
 import os
 import platform
 import tarfile
 import tempfile
-import json
 from pathlib import Path
 from typing import Any, Dict, Union
 from urllib.parse import urljoin
@@ -53,10 +53,14 @@ def install_helm_binary(version="v3.12.1"):
     return final_path
 
 
-def run_helm_subprocess(processargs, suppress_output=False, **kwargs) -> tuple[int, str]:
+def run_helm_subprocess(
+    processargs, suppress_output=False, **kwargs
+) -> tuple[int, str]:
     helm_path = install_helm_binary()
     logger.info(f" helm at {helm_path}")
-    return run_subprocess_cmd([helm_path] + processargs, suppress_output=suppress_output, **kwargs)
+    return run_subprocess_cmd(
+        [helm_path] + processargs, suppress_output=suppress_output, **kwargs
+    )
 
 
 def helm_repo_add(name: str, url: str, namespace: str = "default"):
@@ -68,7 +72,12 @@ def helm_update(namespace: str = "default"):
 
 
 def helm_pull(
-    repo: str, chart: str, version: str, overrides: dict, output_dir: str | Path, namespace: str = "default",
+    repo: str,
+    chart: str,
+    version: str,
+    overrides: dict,
+    output_dir: str | Path,
+    namespace: str = "default",
 ) -> Dict[str, str]:
     contents = {}
 
@@ -137,35 +146,48 @@ def update_helm_values(overrides: Dict[str, Any], file_path: Union[str, Path]):
 
 
 def helm_list(namespace: str = "default") -> dict[str, Any]:
-    exit_code, helm_releases = run_helm_subprocess(["list", "-o", "json", "--namespace", namespace])
+    exit_code, helm_releases = run_helm_subprocess(
+        ["list", "-o", "json", "--namespace", namespace]
+    )
     if exit_code != 0:
         logger.warn(f"No Helm release were found.")
         return {}
-    return json.loads(helm_releases)   
+    return json.loads(helm_releases)
 
 
 def helm_status(release_name: str, namespace: str = "default") -> dict[str, Any]:
-    exit_code, status = run_helm_subprocess(["status", release_name , "-o", "json", "--namespace", namespace], suppress_output=True)
+    exit_code, status = run_helm_subprocess(
+        ["status", release_name, "-o", "json", "--namespace", namespace],
+        suppress_output=True,
+    )
     if exit_code != 0:
         logger.warn(f"Helm release `{release_name}` not found.")
         return {}
-    return json.loads(status)   
+    return json.loads(status)
 
 
-def helm_install(chart_location: str | Path, release_name: str, namespace: str = "default"):
+def helm_install(
+    chart_location: str | Path, release_name: str, namespace: str = "default"
+):
     if isinstance(chart_location, str):
         chart_location = Path(chart_location)
-    run_helm_subprocess(["install", release_name, chart_location, "--namespace", namespace])
+    run_helm_subprocess(
+        ["install", release_name, chart_location, "--namespace", namespace]
+    )
 
 
 def helm_uninstall(release_name: str, namespace: str = "default"):
     run_helm_subprocess(["uninstall", release_name, "--namespace", namespace])
 
 
-def helm_upgrade(chart_location: str | Path, release_name: str, namespace: str = "default"):
+def helm_upgrade(
+    chart_location: str | Path, release_name: str, namespace: str = "default"
+):
     if isinstance(chart_location, str):
         chart_location = Path(chart_location)
-    run_helm_subprocess(["upgrade", release_name, chart_location, "--namespace", namespace])
+    run_helm_subprocess(
+        ["upgrade", release_name, chart_location, "--namespace", namespace]
+    )
 
 
 def is_chart_deployed(release_name: str, namespace: str = "default") -> bool:
