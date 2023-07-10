@@ -1,0 +1,5 @@
+## Include the NebariHelmStage.name as a top-level key to overrides those values.
+
+## Add your default values for this Chart and Kubernetes resources in the template directory.
+
+startup_greeting: "Hello from the values.yaml in your new NebariHelmStage!"

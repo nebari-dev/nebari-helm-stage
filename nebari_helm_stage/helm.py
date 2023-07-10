@@ -1,4 +1,3 @@
-import collections.abc
 import json
 import logging
 import os
@@ -6,22 +5,61 @@ import platform
 import tarfile
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Union
-from urllib.parse import urljoin
+from typing import Any, Dict, List, Optional, Union
+from urllib.parse import urljoin, urlparse
 
 import requests
-from ruamel.yaml import YAML
+from nebari.schema import Base
 
 from nebari_helm_stage.utils import run_subprocess_cmd
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_HELM_VERSION = "v3.12.1"
 
 
 class HelmException(Exception):
     pass
 
 
-def install_helm_binary(version="v3.12.1"):
+class Chart(Base):
+    name: Optional[Union[str, None]] = None
+    repo: Optional[Union[str, Path, None]] = None
+    url: Optional[Union[str, None]] = None
+    version: Optional[Union[str, None]] = None
+    overrides: Dict[str, Any] = {}
+
+
+class Dependency(Base):
+    name: str
+    version: str
+    repository: str
+
+
+class ChartYAML(Base):
+    apiVersion: str = "v2"
+    name: str
+    version: str
+    appVersion: str
+    dependencies: Optional[Union[List[Dependency], None]] = None
+
+
+def map_chart_to_dependecy(chart: Chart) -> Dependency:
+    # TODO: determine better way of accurately setting `repository`
+    repository = chart.repo
+    if isinstance(chart.repo, Path):
+        repository = "file://" + str(chart.repo.absolute())
+    elif urlparse(chart.url).scheme:
+        repository = chart.url
+
+    return Dependency(
+        name=chart.name,
+        version=chart.version,
+        repository=repository,
+    )
+
+
+def install_helm_binary(version: str = DEFAULT_HELM_VERSION) -> Path:
     base = "https://get.helm.sh"
     helm = "helm"
     helm_path = f"{platform.system().lower()}-{platform.machine()}"
@@ -75,74 +113,27 @@ def helm_pull(
     repo: str,
     chart: str,
     version: str,
-    overrides: dict,
     output_dir: str | Path,
     namespace: str = "default",
 ) -> Dict[str, str]:
-    contents = {}
-
     if isinstance(output_dir, str):
         output_dir = Path(output_dir)
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_dir_path = Path(temp_dir)
+    run_helm_subprocess(
+        [
+            "pull",
+            f"{repo}/{chart}",
+            "--version",
+            version,
+            "--untar",
+            "--untardir",
+            output_dir,
+            "--namespace",
+            namespace,
+        ]
+    )
 
-        run_helm_subprocess(
-            [
-                "pull",
-                f"{repo}/{chart}",
-                "--version",
-                version,
-                "--untar",
-                "--untardir",
-                temp_dir_path,
-                "--namespace",
-                namespace,
-            ]
-        )
-
-        for dirpath, dirnames, filenames in os.walk(temp_dir_path):
-            for filename in filenames:
-                file_path = Path(dirpath) / filename
-                try:
-                    # update values.yaml in place
-                    if filename == "values.yaml":
-                        update_helm_values(overrides=overrides, file_path=file_path)
-
-                    with open(file_path, "r") as file:
-                        file_content = file.read()
-
-                    # mock the final location
-                    relative_path = str(
-                        (output_dir / file_path.relative_to(temp_dir_path)).absolute()
-                    )
-                    contents[relative_path] = file_content
-                except UnicodeDecodeError:
-                    logger.warn(
-                        f"{filename} is not a text file so it will not be included."
-                    )
-
-    return contents
-
-
-def update_helm_values(overrides: Dict[str, Any], file_path: Union[str, Path]):
-    yaml = YAML()
-
-    with open(file_path, "r") as f:
-        values = yaml.load(f)
-
-    def update(d, u):
-        for k, v in u.items():
-            if isinstance(v, collections.abc.Mapping):
-                d[k] = update(d.get(k, {}), v)
-            else:
-                d[k] = v
-        return d
-
-    values = update(values, overrides)
-
-    with open(file_path, "w") as f:
-        yaml.dump(values, f)
+    return output_dir
 
 
 def helm_list(namespace: str = "default") -> dict[str, Any]:
@@ -172,12 +163,15 @@ def helm_install(
     if isinstance(chart_location, str):
         chart_location = Path(chart_location)
     run_helm_subprocess(
-        ["install", release_name, chart_location, "--namespace", namespace]
+        ["install", release_name, chart_location, "--namespace", namespace],
+        suppress_output=True,
     )
 
 
 def helm_uninstall(release_name: str, namespace: str = "default"):
-    run_helm_subprocess(["uninstall", release_name, "--namespace", namespace])
+    run_helm_subprocess(
+        ["uninstall", release_name, "--namespace", namespace], suppress_output=True
+    )
 
 
 def helm_upgrade(
@@ -186,7 +180,8 @@ def helm_upgrade(
     if isinstance(chart_location, str):
         chart_location = Path(chart_location)
     run_helm_subprocess(
-        ["upgrade", release_name, chart_location, "--namespace", namespace]
+        ["upgrade", release_name, chart_location, "--namespace", namespace],
+        suppress_output=True,
     )
 
 

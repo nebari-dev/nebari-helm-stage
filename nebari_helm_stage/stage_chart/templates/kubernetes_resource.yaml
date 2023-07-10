@@ -1,0 +1,14 @@
+# Add your Kubernetes resources here, supports Jinja2 templating and set default values in values.yaml
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: Greetings-from-the-{{ .Release.Name }}-NebariHelmStage
+  namespace: {{ .Release.Namespace }}
+spec:
+  containers:
+  - name: hello-world-container
+    image: busybox
+    command: ['sh', '-c', 'echo {{ .Values.startup_greeting }} && sleep 60']
+

@@ -1,9 +1,18 @@
+import collections.abc
+import functools
+import logging
 import os
 import re
 import signal
 import subprocess
 import sys
 import threading
+from pathlib import Path
+from typing import Any, Dict, Union
+
+from ruamel.yaml import YAML
+
+logger = logging.getLogger(__name__)
 
 
 def run_subprocess_cmd(processargs, suppress_output=False, **kwargs):
@@ -67,3 +76,52 @@ def run_subprocess_cmd(processargs, suppress_output=False, **kwargs):
     output_str = "".join(output_lines)
 
     return exit_code, output_str
+
+
+def update_dict(d, u):
+    for k, v in u.items():
+        if isinstance(v, collections.abc.Mapping):
+            d[k] = update_dict(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d
+
+
+def update_yaml(overrides: Dict[str, Any], file_path: Union[str, Path]):
+    yaml = YAML()
+
+    with open(file_path, "r") as f:
+        values = yaml.load(f)
+
+    values = update_dict(values, overrides)
+
+    with open(file_path, "w") as f:
+        yaml.dump(values, f)
+
+
+def populate_contents(
+    base_directory: str,
+    output_dir: str,
+) -> Dict[str, str]:
+
+    contents = {}
+
+    for dirpath, dirnames, filenames in os.walk(base_directory):
+        for filename in filenames:
+            file_path = Path(dirpath) / filename
+            try:
+                with open(file_path, "r") as file:
+                    file_content = file.read()
+
+                final_path = str(
+                    (
+                        Path(output_dir) / file_path.relative_to(Path(base_directory))
+                    ).absolute()
+                )
+                contents[final_path] = file_content
+            except UnicodeDecodeError:
+                logger.info(
+                    f"{filename} is not a text file so it will not be included."
+                )
+
+    return contents

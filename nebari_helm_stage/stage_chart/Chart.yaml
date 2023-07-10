@@ -1,0 +1,10 @@
+# These values will overwritten when `nebari render` is called
+apiVersion: v2
+name: ""
+version: ""
+
+dependencies:
+- name: ""
+  repository: ""
+  version: ""
+  
