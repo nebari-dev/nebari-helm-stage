@@ -7,7 +7,7 @@ The `NebariHelmStage` inherits from the `NebariStage` base class and is a specia
 
 The `NebariHelmStage` class can now be used to create a Helm stage with relative ease. 
 
-See the [nebari-label-studio-chart](https://github.com/nebari-dev/nebari-label-studio-chart) as a *WIP* example.
+See the [nebari-label-studio](https://github.com/nebari-dev/nebari-label-studio) as a *WIP* example.
 
 
 If you have ever used Helm, you will be familiar with the functions in the `helm` module. 
