@@ -1,5 +1,4 @@
 import collections.abc
-import functools
 import logging
 import os
 import re
@@ -9,6 +8,7 @@ import sys
 import threading
 from pathlib import Path
 from typing import Any, Dict, Union
+from urllib.parse import urlparse, urlunparse
 
 from ruamel.yaml import YAML
 

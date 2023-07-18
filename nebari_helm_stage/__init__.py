@@ -3,7 +3,7 @@ import inspect
 import logging
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from nebari.hookspecs import NebariStage
 from nebari.schema import Base, Main
@@ -14,9 +14,21 @@ from nebari_helm_stage.utils import populate_contents, update_yaml
 logger = logging.getLogger(__name__)
 
 
+# We use the helm install/upgrade --set-json flag to override the chart/values.yaml
+
+# k: dot-separated path to specific key in values.yaml
+# v: the `stage_outputs` {variable} as needed
+SET_JSON_TEMPLATE = {
+    "startup_greeting": "Hello World from {domain}!",
+}
+
+# Required values from `stage_outputs`
+class RequiredValues(Base):
+    domain: str
+
+
 class InputSchema(Base):
-    # for the top-level chart/values.yaml
-    stage_values_overrides: Optional[Dict[str, Any]] = {}
+    overrides: Optional[Dict[str, Any]] = {}
     extra_chart_dependencies: Optional[List[helm.Chart]] = []
 
 
@@ -25,14 +37,16 @@ class OutputSchema(Base):
 
 
 class NebariHelmStage(NebariStage):
-    name = "helm_extension"
     priority = 100
     version: str = "0.1.0"  # TODO: use package version here
 
     input_schema = InputSchema
     output_schema = OutputSchema
+    required_values = RequiredValues
 
     base_dependency_charts: List[helm.Chart] = []
+
+    set_json_template = SET_JSON_TEMPLATE
 
     @property
     def stage_config(self) -> Union[None, Main]:
@@ -63,6 +77,40 @@ class NebariHelmStage(NebariStage):
     def stage_chart_directory(self) -> Path:
         return self.output_directory / self.stage_prefix
 
+    def get_stage_output(
+        self, stage_outputs: Dict[str, Dict[str, Any]], output_name: str
+    ):
+        # utility function to get values from stage_outputs dict
+        # for _, values, in stage_outputs.items():
+        #     if output_name in values.keys():
+        #         return values[output_name]
+        return "https://jsawe.thusness.io"
+
+    def generate_set_json(self, stage_outputs: Dict[str, Dict[str, Any]]):
+
+        requirements = {}
+        for req in self.required_values.__annotations__:
+            value = self.get_stage_output(stage_outputs, req)
+            if value is not None:
+                requirements[req] = value
+            else:
+                raise ValueError(f"Required value `{req}` not found in stage_outputs.")
+
+        updated_set_json = {
+            k: v.format(**requirements) for k, v in self.set_json_template.items()
+        }
+
+        # apply overrides
+        if self.stage_config is not None:
+            updated_set_json.update(self.stage_config.overrides)
+
+        # format set_json as string
+        s = ""
+        for k, v in updated_set_json.items():
+            s += f'{k}="{v}" '
+
+        return s.strip()
+
     def render(self) -> Dict[str, str]:
         # TODO:
         # confirm kube context is set correctly
@@ -79,9 +127,7 @@ class NebariHelmStage(NebariStage):
         # copy chart template to temporary directory
         shutil.copytree(self.template_directory, helm_tmp_dir, dirs_exist_ok=True)
         if self.stage_config is not None:
-            update_yaml(
-                self.stage_config.stage_values_overrides, helm_tmp_dir / "values.yaml"
-            )
+            update_yaml(self.stage_config.overrides, helm_tmp_dir / "values.yaml")
         stage_chart = helm.ChartYAML(
             name=self.stage_chart.name,
             version=self.stage_chart.version,
@@ -120,7 +166,9 @@ class NebariHelmStage(NebariStage):
 
     @contextlib.contextmanager
     def deploy(self, stage_outputs: Dict[str, Dict[str, Any]]):
-        # TODO: remove stage_outputs, update output_schema with appropriate values
+        # TODO: remove stage_outputs, update output_schema with appropriate value
+
+        set_json = self.generate_set_json(stage_outputs)
 
         if helm.is_chart_deployed(
             release_name=self.name, namespace=self.config.namespace
@@ -129,12 +177,14 @@ class NebariHelmStage(NebariStage):
                 chart_location=self.stage_chart_directory,
                 release_name=self.name,
                 namespace=self.config.namespace,
+                set_json=set_json,
             )
         else:
             helm.helm_install(
                 chart_location=self.stage_chart_directory,
                 release_name=self.name,
                 namespace=self.config.namespace,
+                set_json=set_json,
             )
         yield
 

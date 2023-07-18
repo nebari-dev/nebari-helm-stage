@@ -158,30 +158,52 @@ def helm_status(release_name: str, namespace: str = "default") -> dict[str, Any]
 
 
 def helm_install(
-    chart_location: str | Path, release_name: str, namespace: str = "default"
+    chart_location: str | Path,
+    release_name: str,
+    namespace: str = "default",
+    set_json: str = "",
 ):
     if isinstance(chart_location, str):
         chart_location = Path(chart_location)
     run_helm_subprocess(
-        ["install", release_name, chart_location, "--namespace", namespace],
-        suppress_output=True,
+        [
+            "install",
+            release_name,
+            chart_location,
+            "--namespace",
+            namespace,
+            "--set-json",
+            set_json,
+        ],
+        suppress_output=False,
     )
 
 
 def helm_uninstall(release_name: str, namespace: str = "default"):
     run_helm_subprocess(
-        ["uninstall", release_name, "--namespace", namespace], suppress_output=True
+        ["uninstall", release_name, "--namespace", namespace], suppress_output=False
     )
 
 
 def helm_upgrade(
-    chart_location: str | Path, release_name: str, namespace: str = "default"
+    chart_location: str | Path,
+    release_name: str,
+    namespace: str = "default",
+    set_json: str = "",
 ):
     if isinstance(chart_location, str):
         chart_location = Path(chart_location)
     run_helm_subprocess(
-        ["upgrade", release_name, chart_location, "--namespace", namespace],
-        suppress_output=True,
+        [
+            "upgrade",
+            release_name,
+            chart_location,
+            "--namespace",
+            namespace,
+            "--set-json",
+            set_json,
+        ],
+        suppress_output=False,
     )
 
 
