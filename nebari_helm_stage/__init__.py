@@ -81,10 +81,9 @@ class NebariHelmStage(NebariStage):
         self, stage_outputs: Dict[str, Dict[str, Any]], output_name: str
     ):
         # utility function to get values from stage_outputs dict
-        # for _, values, in stage_outputs.items():
-        #     if output_name in values.keys():
-        #         return values[output_name]
-        return "https://jsawe.thusness.io"
+        for _, values, in stage_outputs.items():
+            if output_name in values.keys():
+                return values[output_name]
 
     def generate_set_json(self, stage_outputs: Dict[str, Dict[str, Any]]):
 
