@@ -3,7 +3,7 @@ import inspect
 import logging
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 from nebari.hookspecs import NebariStage
 from nebari.schema import Base, Main
@@ -14,20 +14,8 @@ from nebari_helm_stage.utils import populate_contents, update_yaml
 logger = logging.getLogger(__name__)
 
 
-# We use the helm install/upgrade --set-json flag to override the chart/values.yaml
-
-# k: dot-separated path to specific key in values.yaml
-# v: the `stage_outputs` {variable} as needed
-SET_JSON_TEMPLATE = {
-    "startup_greeting": "Hello World from {domain}!",
-}
-
-# Required values from `stage_outputs`
-class RequiredValues(Base):
-    domain: str
-
-
 class InputSchema(Base):
+    namespace: Optional[str] = None
     overrides: Optional[Dict[str, Any]] = {}
     extra_chart_dependencies: Optional[List[helm.Chart]] = []
 
@@ -42,11 +30,8 @@ class NebariHelmStage(NebariStage):
 
     input_schema = InputSchema
     output_schema = OutputSchema
-    required_values = RequiredValues
 
     base_dependency_charts: List[helm.Chart] = []
-
-    set_json_template = SET_JSON_TEMPLATE
 
     @property
     def stage_config(self) -> Union[None, Main]:
@@ -77,27 +62,43 @@ class NebariHelmStage(NebariStage):
     def stage_chart_directory(self) -> Path:
         return self.output_directory / self.stage_prefix
 
+    @property
+    def namespace(self) -> str:
+        if self.stage_config is not None and self.stage_config.namespace is not None:
+            return self.stage_config.namespace
+        return self.config.namespace
+
     def get_stage_output(
         self, stage_outputs: Dict[str, Dict[str, Any]], output_name: str
     ):
         # utility function to get values from stage_outputs dict
-        for _, values, in stage_outputs.items():
+        for (
+            _,
+            values,
+        ) in stage_outputs.items():
             if output_name in values.keys():
                 return values[output_name]
 
+    # TODO: remove stage_outputs, update output_schema with appropriate values
+    def required_inputs(
+        self, stage_outputs: Dict[str, Dict[str, Any]]
+    ) -> Dict[str, str]:
+        # Explicitly define the input variables for this stage...
+        try:
+            domain = stage_outputs["04-kubernetes-ingress"]["domain"]
+        except KeyError:
+            raise Exception("04-kubernetes-ingress stage must be run before this stage")
+
+        # And where those values are needed in the stage_chart/values.yaml
+        # k: dot-separated path to specific key in values.yaml
+        # v: the `stage_outputs` {variable} as needed, supports dicts
+        return {
+            "startup_greeting": f"Hello World from {domain}!",
+        }
+
     def generate_set_json(self, stage_outputs: Dict[str, Dict[str, Any]]):
 
-        requirements = {}
-        for req in self.required_values.__annotations__:
-            value = self.get_stage_output(stage_outputs, req)
-            if value is not None:
-                requirements[req] = value
-            else:
-                raise ValueError(f"Required value `{req}` not found in stage_outputs.")
-
-        updated_set_json = {
-            k: v.format(**requirements) for k, v in self.set_json_template.items()
-        }
+        updated_set_json = self.required_inputs(stage_outputs)
 
         # apply overrides
         if self.stage_config is not None:
@@ -119,7 +120,7 @@ class NebariHelmStage(NebariStage):
         # create a persistent temporary directory to store all rendered files
         helm_tmp_dir = (
             helm.install_helm_binary().parent
-            / f"{self.config.project_name}-{self.config.namespace}"
+            / f"{self.config.project_name}-{self.namespace}"
             / self.name
         )
 
@@ -145,7 +146,7 @@ class NebariHelmStage(NebariStage):
                     chart=chart.name,
                     version=chart.version,
                     output_dir=charts_tmp_dir,
-                    namespace=self.config.namespace,
+                    namespace=self.namespace,
                 )
             update_yaml(chart.overrides, charts_tmp_dir / chart.name / "values.yaml")
 
@@ -167,31 +168,34 @@ class NebariHelmStage(NebariStage):
     def deploy(self, stage_outputs: Dict[str, Dict[str, Any]]):
         # TODO: remove stage_outputs, update output_schema with appropriate value
 
+        # Use the helm install/upgrade --set-json flag to override the stage_chart/values.yaml
         set_json = self.generate_set_json(stage_outputs)
 
-        if helm.is_chart_deployed(
-            release_name=self.name, namespace=self.config.namespace
-        ):
+        if helm.is_chart_deployed(release_name=self.name, namespace=self.namespace):
             helm.helm_upgrade(
                 chart_location=self.stage_chart_directory,
                 release_name=self.name,
-                namespace=self.config.namespace,
+                namespace=self.namespace,
                 set_json=set_json,
             )
         else:
             helm.helm_install(
                 chart_location=self.stage_chart_directory,
                 release_name=self.name,
-                namespace=self.config.namespace,
+                namespace=self.namespace,
                 set_json=set_json,
             )
         yield
 
     @contextlib.contextmanager
-    def destroy(self, stage_outputs: Dict[str, Dict[str, Any]]):
-        # TODO: remove stage_outputs, update output_schema with appropriate values
+    def destroy(
+        self, stage_outputs: Dict[str, Dict[str, Any]], status: Dict[str, bool]
+    ):
+        # TODO:
+        # - remove stage_outputs, update output_schema with appropriate values
+        # - decide how to better use status dict to track success/failure of chart uninstall
 
-        helm.helm_uninstall(release_name=self.name, namespace=self.config.namespace)
+        helm.helm_uninstall(release_name=self.name, namespace=self.namespace)
         yield
 
     def check(self, stage_outputs: Dict[str, Dict[str, Any]]):
