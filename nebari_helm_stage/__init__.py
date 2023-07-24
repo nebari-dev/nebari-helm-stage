@@ -31,11 +31,14 @@ class NebariHelmStage(NebariStage):
     input_schema = InputSchema
     output_schema = OutputSchema
 
+    stage_prefix: Path = Path()
+    debug: bool = False
+
     base_dependency_charts: List[helm.Chart] = []
 
     @property
     def stage_config(self) -> Union[None, Main]:
-        return getattr(self.config, self.name)
+        return getattr(self.config, self.name, InputSchema())
 
     @property
     def stage_chart(self) -> helm.Chart:
@@ -171,20 +174,14 @@ class NebariHelmStage(NebariStage):
         # Use the helm install/upgrade --set-json flag to override the stage_chart/values.yaml
         set_json = self.generate_set_json(stage_outputs)
 
-        if helm.is_chart_deployed(release_name=self.name, namespace=self.namespace):
-            helm.helm_upgrade(
-                chart_location=self.stage_chart_directory,
-                release_name=self.name,
-                namespace=self.namespace,
-                set_json=set_json,
-            )
-        else:
-            helm.helm_install(
-                chart_location=self.stage_chart_directory,
-                release_name=self.name,
-                namespace=self.namespace,
-                set_json=set_json,
-            )
+        helm.helm_upgrade(
+            chart_location=self.stage_chart_directory,
+            release_name=self.name,
+            namespace=self.namespace,
+            set_json=set_json,
+            debug=self.debug
+        )
+
         yield
 
     @contextlib.contextmanager
@@ -200,3 +197,15 @@ class NebariHelmStage(NebariStage):
 
     def check(self, stage_outputs: Dict[str, Dict[str, Any]]):
         pass
+
+    def template(self, stage_outputs: Dict[str, Dict[str, Any]]):
+        # Use the helm install/upgrade --set-json flag to override the stage_chart/values.yaml
+        set_json = self.generate_set_json(stage_outputs)
+
+        return helm.helm_template(
+            chart_location=self.stage_chart_directory,
+            release_name=self.name,
+            namespace=self.namespace,
+            set_json=set_json,
+            debug=self.debug
+        )

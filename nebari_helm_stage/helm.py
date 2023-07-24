@@ -62,7 +62,9 @@ def map_chart_to_dependecy(chart: Chart) -> Dependency:
 def install_helm_binary(version: str = DEFAULT_HELM_VERSION) -> Path:
     base = "https://get.helm.sh"
     helm = "helm"
-    helm_path = f"{platform.system().lower()}-{platform.machine()}"
+
+    is_amd64 = platform.machine().lower() in ("amd64", "x86_64")
+    helm_path = f"{platform.system().lower()}-{platform.machine() if not is_amd64 else 'amd64'}"
     download_url = urljoin(base, f"helm-{version}-{helm_path}.tar.gz")
 
     helm_dir = Path(tempfile.gettempdir()) / helm / version
@@ -157,29 +159,6 @@ def helm_status(release_name: str, namespace: str = "default") -> dict[str, Any]
     return json.loads(status)
 
 
-def helm_install(
-    chart_location: str | Path,
-    release_name: str,
-    namespace: str = "default",
-    set_json: str = "",
-):
-    if isinstance(chart_location, str):
-        chart_location = Path(chart_location)
-    run_helm_subprocess(
-        [
-            "install",
-            release_name,
-            chart_location,
-            "--namespace",
-            namespace,
-            "--create-namespace",
-            "--set-json",
-            set_json,
-        ],
-        suppress_output=False,
-    )
-
-
 def helm_uninstall(release_name: str, namespace: str = "default"):
     run_helm_subprocess(
         ["uninstall", release_name, "--namespace", namespace], suppress_output=False
@@ -191,12 +170,22 @@ def helm_upgrade(
     release_name: str,
     namespace: str = "default",
     set_json: str = "",
+    debug: bool = False,
 ):
     if isinstance(chart_location, str):
         chart_location = Path(chart_location)
+
+    debug_args = []
+    if debug:
+        debug_args = [
+            "--debug",
+            "--dry-run"
+        ]
+    
     run_helm_subprocess(
         [
             "upgrade",
+            "-i",
             release_name,
             chart_location,
             "--namespace",
@@ -204,10 +193,40 @@ def helm_upgrade(
             "--create-namespace",
             "--set-json",
             set_json,
-        ],
+        ] + debug_args,
         suppress_output=False,
     )
 
+
+def helm_template(
+    chart_location: str | Path,
+    release_name: str,
+    namespace: str = "default",
+    set_json: str = "",
+    debug: bool = False,
+):
+    if isinstance(chart_location, str):
+        chart_location = Path(chart_location)
+
+    debug_args = []
+    if debug:
+        debug_args = [
+            "--debug"
+        ]
+    
+    return run_helm_subprocess(
+        [
+            "template",
+            release_name,
+            chart_location,
+            "--namespace",
+            namespace,
+            "--create-namespace",
+            "--set-json",
+            set_json,
+        ] + debug_args,
+        suppress_output=True,
+    )
 
 def is_chart_deployed(release_name: str, namespace: str = "default") -> bool:
     status = helm_status(release_name, namespace=namespace)
