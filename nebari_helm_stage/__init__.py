@@ -38,7 +38,7 @@ class NebariHelmStage(NebariStage):
 
     @property
     def stage_config(self) -> Union[None, Main]:
-        return getattr(self.config, self.name, InputSchema())
+        return getattr(self.config, self.name.replace("-", "_"), None)
 
     @property
     def stage_chart(self) -> helm.Chart:
@@ -104,8 +104,8 @@ class NebariHelmStage(NebariStage):
         updated_set_json = self.required_inputs(stage_outputs)
 
         # apply overrides
-        if self.stage_config is not None:
-            updated_set_json.update(self.stage_config.overrides)
+        # if self.stage_config is not None:
+        #     updated_set_json.update(self.stage_config.overrides)
 
         # format set_json as string
         s = ""
