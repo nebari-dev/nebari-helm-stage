@@ -113,6 +113,7 @@ def helm_update(namespace: str = "default"):
 
 def helm_pull(
     repo: str,
+    url: str,
     chart: str,
     version: str,
     output_dir: str | Path,
@@ -121,6 +122,9 @@ def helm_pull(
     if isinstance(output_dir, str):
         output_dir = Path(output_dir)
 
+    if repo not in run_helm_subprocess(["repo","list"])[1]:
+        helm_repo_add(repo,url)
+        
     run_helm_subprocess(
         [
             "pull",

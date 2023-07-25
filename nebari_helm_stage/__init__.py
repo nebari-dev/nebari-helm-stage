@@ -147,6 +147,7 @@ class NebariHelmStage(NebariStage):
             if not Path(charts_tmp_dir / chart.name / "values.yaml").is_file():
                 helm.helm_pull(
                     repo=chart.repo,
+                    url=chart.url,
                     chart=chart.name,
                     version=chart.version,
                     output_dir=charts_tmp_dir,
