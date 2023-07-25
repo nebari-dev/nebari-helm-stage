@@ -159,9 +159,19 @@ def helm_status(release_name: str, namespace: str = "default") -> dict[str, Any]
     return json.loads(status)
 
 
-def helm_uninstall(release_name: str, namespace: str = "default"):
+def helm_uninstall(
+        release_name: str,
+        namespace: str = "default",
+        wait: bool = False,
+    ):
     run_helm_subprocess(
-        ["uninstall", release_name, "--namespace", namespace], suppress_output=False
+        [
+            "uninstall",
+            release_name,
+            "--namespace",
+            namespace,
+        ] + [ "--wait" ] if wait else [],
+        suppress_output=False
     )
 
 
@@ -170,17 +180,11 @@ def helm_upgrade(
     release_name: str,
     namespace: str = "default",
     set_json: str = "",
+    wait: bool = False,
     debug: bool = False,
 ):
     if isinstance(chart_location, str):
         chart_location = Path(chart_location)
-
-    debug_args = []
-    if debug:
-        debug_args = [
-            "--debug",
-            "--dry-run"
-        ]
     
     run_helm_subprocess(
         [
@@ -191,9 +195,12 @@ def helm_upgrade(
             "--namespace",
             namespace,
             "--create-namespace",
+            "--wait",
             "--set-json",
             set_json,
-        ] + debug_args,
+        ]
+        + [ "--wait" ] if wait else []
+        + [ "--debug", "--dry-run" ] if debug else [],
         suppress_output=False,
     )
 
@@ -207,12 +214,6 @@ def helm_template(
 ):
     if isinstance(chart_location, str):
         chart_location = Path(chart_location)
-
-    debug_args = []
-    if debug:
-        debug_args = [
-            "--debug"
-        ]
     
     return run_helm_subprocess(
         [
@@ -224,7 +225,8 @@ def helm_template(
             "--create-namespace",
             "--set-json",
             set_json,
-        ] + debug_args,
+        ]
+        + [ "--debug" ] if debug else [],
         suppress_output=True,
     )
 

@@ -33,6 +33,7 @@ class NebariHelmStage(NebariStage):
 
     stage_prefix: Path = Path()
     debug: bool = False
+    wait: bool = False
 
     base_dependency_charts: List[helm.Chart] = []
 
@@ -179,6 +180,7 @@ class NebariHelmStage(NebariStage):
             release_name=self.name,
             namespace=self.namespace,
             set_json=set_json,
+            wait=self.wait,
             debug=self.debug
         )
 
@@ -192,7 +194,11 @@ class NebariHelmStage(NebariStage):
         # - remove stage_outputs, update output_schema with appropriate values
         # - decide how to better use status dict to track success/failure of chart uninstall
 
-        helm.helm_uninstall(release_name=self.name, namespace=self.namespace)
+        helm.helm_uninstall(
+            release_name=self.name,
+            namespace=self.namespace,
+            wait=self.wait
+        )
         yield
 
     def check(self, stage_outputs: Dict[str, Dict[str, Any]]):
