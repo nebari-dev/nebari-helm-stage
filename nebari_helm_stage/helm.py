@@ -195,7 +195,6 @@ def helm_upgrade(
             "--namespace",
             namespace,
             "--create-namespace",
-            "--wait",
             "--set-json",
             set_json,
         ]
