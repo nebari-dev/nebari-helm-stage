@@ -31,7 +31,6 @@ class NebariHelmStage(NebariStage):
     input_schema = InputSchema
     output_schema = OutputSchema
 
-    stage_prefix: Path = Path()
     debug: bool = False
     wait: bool = False
 
@@ -40,6 +39,10 @@ class NebariHelmStage(NebariStage):
     @property
     def stage_config(self) -> Union[None, Main]:
         return getattr(self.config, self.name.replace("-", "_"), None)
+
+    @property
+    def stage_prefix(self):
+        return Path("stages") / self.name
 
     @property
     def stage_chart(self) -> helm.Chart:
