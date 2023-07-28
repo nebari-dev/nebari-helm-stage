@@ -232,8 +232,7 @@ def helm_template(
             "--create-namespace",
             "--set-json",
             set_json,
-        ]
-        + (
+        ] + (
             [ "--debug" ] if debug else []
         ),
         suppress_output=True,
