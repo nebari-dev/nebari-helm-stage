@@ -174,7 +174,9 @@ def helm_uninstall(
             release_name,
             "--namespace",
             namespace,
-        ] + [ "--wait" ] if wait else [],
+        ] + (
+            [ "--wait" ] if wait else []
+        ),
         suppress_output=False
     )
 
@@ -201,9 +203,11 @@ def helm_upgrade(
             "--create-namespace",
             "--set-json",
             set_json,
-        ]
-        + [ "--wait" ] if wait else []
-        + [ "--debug", "--dry-run" ] if debug else [],
+        ] + (
+            [ "--wait" ] if wait else []
+        ) + (
+            [ "--debug", "--dry-run" ] if debug else []
+        ),
         suppress_output=False,
     )
 
@@ -229,7 +233,9 @@ def helm_template(
             "--set-json",
             set_json,
         ]
-        + [ "--debug" ] if debug else [],
+        + (
+            [ "--debug" ] if debug else []
+        ),
         suppress_output=True,
     )
 
