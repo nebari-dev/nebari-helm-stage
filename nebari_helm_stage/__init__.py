@@ -31,11 +31,18 @@ class NebariHelmStage(NebariStage):
     input_schema = InputSchema
     output_schema = OutputSchema
 
+    debug: bool = False
+    wait: bool = False
+
     base_dependency_charts: List[helm.Chart] = []
 
     @property
     def stage_config(self) -> Union[None, Main]:
-        return getattr(self.config, self.name)
+        return getattr(self.config, self.name.replace("-", "_"), None)
+
+    @property
+    def stage_prefix(self):
+        return Path("stages") / self.name
 
     @property
     def stage_chart(self) -> helm.Chart:
@@ -101,8 +108,8 @@ class NebariHelmStage(NebariStage):
         updated_set_json = self.required_inputs(stage_outputs)
 
         # apply overrides
-        if self.stage_config is not None:
-            updated_set_json.update(self.stage_config.overrides)
+        # if self.stage_config is not None:
+        #     updated_set_json.update(self.stage_config.overrides)
 
         # format set_json as string
         s = ""
@@ -143,6 +150,7 @@ class NebariHelmStage(NebariStage):
             if not Path(charts_tmp_dir / chart.name / "values.yaml").is_file():
                 helm.helm_pull(
                     repo=chart.repo,
+                    url=chart.url,
                     chart=chart.name,
                     version=chart.version,
                     output_dir=charts_tmp_dir,
@@ -171,20 +179,15 @@ class NebariHelmStage(NebariStage):
         # Use the helm install/upgrade --set-json flag to override the stage_chart/values.yaml
         set_json = self.generate_set_json(stage_outputs)
 
-        if helm.is_chart_deployed(release_name=self.name, namespace=self.namespace):
-            helm.helm_upgrade(
-                chart_location=self.stage_chart_directory,
-                release_name=self.name,
-                namespace=self.namespace,
-                set_json=set_json,
-            )
-        else:
-            helm.helm_install(
-                chart_location=self.stage_chart_directory,
-                release_name=self.name,
-                namespace=self.namespace,
-                set_json=set_json,
-            )
+        helm.helm_upgrade(
+            chart_location=self.stage_chart_directory,
+            release_name=self.name,
+            namespace=self.namespace,
+            set_json=set_json,
+            wait=self.wait,
+            debug=self.debug
+        )
+
         yield
 
     @contextlib.contextmanager
@@ -195,8 +198,24 @@ class NebariHelmStage(NebariStage):
         # - remove stage_outputs, update output_schema with appropriate values
         # - decide how to better use status dict to track success/failure of chart uninstall
 
-        helm.helm_uninstall(release_name=self.name, namespace=self.namespace)
+        helm.helm_uninstall(
+            release_name=self.name,
+            namespace=self.namespace,
+            wait=self.wait
+        )
         yield
 
     def check(self, stage_outputs: Dict[str, Dict[str, Any]]):
         pass
+
+    def template(self, stage_outputs: Dict[str, Dict[str, Any]]):
+        # Use the helm install/upgrade --set-json flag to override the stage_chart/values.yaml
+        set_json = self.generate_set_json(stage_outputs)
+
+        return helm.helm_template(
+            chart_location=self.stage_chart_directory,
+            release_name=self.name,
+            namespace=self.namespace,
+            set_json=set_json,
+            debug=self.debug
+        )
